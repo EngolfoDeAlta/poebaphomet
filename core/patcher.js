@@ -1,5 +1,5 @@
 // ============================================================================
-// PoeBaphomet � núcleo de patches para Path of Exile 1 (Bundles2)
+// PoeBaphomet — núcleo de patches para Path of Exile 1 (Bundles2)
 // ============================================================================
 import { Index } from 'poe-bundle-lib';
 import fs from 'node:fs';
@@ -17,15 +17,6 @@ export function isGameRunning() {
     }
   } catch { /* ignora */ }
   return false;
-}
-function decodeU16(buf) {
-  const hasBom = buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe;
-  const start = hasBom ? 2 : 0;
-  return { text: buf.subarray(start).toString('utf16le'), hasBom };
-}
-function encodeU16(text, hasBom = true) {
-  const body = Buffer.from(text, 'utf16le');
-  return hasBom ? Buffer.concat([BOM, body]) : body;
 }
 
 // Caminhos comuns do jogo (PoE1)
@@ -68,8 +59,7 @@ export function applyPatches(gamePath, config, onProgress = () => {}) {
   const bak = idxPath + '.poebaphomet.bak';
   const custom = path.join(bundles, 'LibGGPK3', '0.bundle.bin');
 
-  // SEMPRE parte de um estado limpo: restaura o índice original (se já há backup)
-  // e remove qualquer bundle custom órfão, para nunca reutilizar dados defasados.
+  // SEMPRE parte de um estado limpo
   if (fs.existsSync(bak)) {
     onProgress('restore', 'Preparando estado limpo (restaurando original)...');
     fs.copyFileSync(bak, idxPath);
@@ -89,27 +79,35 @@ export function applyPatches(gamePath, config, onProgress = () => {}) {
   const idx = new Index(idxPath, { parsePaths: true });
 
   const stats = { files: 0 };
-  const handlers = buildHandlers(config, stats, onProgress);
+  const handlers = buildHandlers(config);
 
-  // handlers que percorrem o índice sozinhos (câmera)
-  for (const h of handlers) {
-    if (h.run) {
-      onProgress('patch', `Aplicando: ${h.name}...`);
-      h.run(idx);
-    }
-  }
-
-  // varredura única por arquivo para os demais patches
+  // UMA ÚNICA passada: cada arquivo é lido 1x, todas as transformações aplicadas em
+  // memória, e gravado 1x ao final. Evita "read-after-write" no bundle-em-memória.
   onProgress('scan', 'Varrendo os arquivos do jogo...');
   let i = 0;
   const total = idx.Files.size;
   for (const [, fr] of idx.Files) {
     const p = fr.Path;
-    if (p) {
-      for (const h of handlers) {
-        if (h.apply && h.should(p)) h.apply(fr);
-      }
+    if (!p) continue;
+    const matching = handlers.filter((h) => h.should(p));
+    if (matching.length === 0) continue;
+
+    const raw = fr.Read();
+    const isUtf16 = raw.includes(0);
+    const hasBom = raw.length >= 2 && raw[0] === 0xff && raw[1] === 0xfe;
+    let text = isUtf16 ? raw.toString('utf16le').replace(/^\uFEFF/, '') : raw.toString('utf8');
+    let changed = false;
+
+    for (const h of matching) {
+      const r = h.transform(text, { isUtf16, hasBom, path: p });
+      if (r !== text) { text = r; changed = true; }
     }
+
+    if (changed) {
+      fr.Write(isUtf16 ? Buffer.from('\uFEFF' + text, 'utf16le') : Buffer.from(text, 'utf8'));
+      stats.files++;
+    }
+
     if (++i % 250000 === 0) {
       onProgress('scan', `Varrendo... ${i.toLocaleString('pt-BR')}/${total.toLocaleString('pt-BR')}`, i / total);
     }
@@ -408,7 +406,7 @@ function stripClientBlocks(data, keepSet) {
   return data.slice(0, clientOpen + 1) + result + data.slice(clientClose);
 }
 
-// --------------------------------------------------- implementação por patch ---
+// --------------------------------------------------- transformações -------
 function removeCameraCallsFromLine(line) {
   let out = line;
   for (const fn of CAMERA_FUNCTIONS) {
@@ -444,110 +442,73 @@ function isDeadLine(line) {
   return false;
 }
 
-function patchCamera(idx, config, stats, onProgress) {
-  const v = parseFloat(config.zoomLevel) || 2.4;
-  const levelStr = (Number.isInteger(v) ? v.toFixed(1) : String(v)).replace(',', '.');
+function transformCameraInject(text, meta) {
+  const levelStr = String(meta.zoomLevel).replace(',', '.');
   const injection =
     `\ton_initial_position_set = {ClearCameraZoomNodes(); CreateCameraZoomNode(1000000000.0, 1000000000.0, ${levelStr});}`;
-
-  for (const [, fr] of idx.Files) {
-    if (fr.Path === 'metadata/characters/character.ot') {
-      const { text, hasBom } = decodeU16(fr.Read());
-      const lines = text.split('\r\n');
-      const ex = lines.findIndex((l) => l.includes('CreateCameraZoomNode'));
-      if (ex !== -1) {
-        lines[ex] = injection;
-      } else {
-        const team = lines.findIndex((l) => l.includes('team = 1'));
-        if (team !== -1) lines.splice(team + 1, 0, injection);
-      }
-      fr.Write(encodeU16(lines.join('\r\n'), hasBom));
-      stats.files++;
-      break;
-    }
+  const lines = text.split('\r\n');
+  const ex = lines.findIndex((l) => l.includes('CreateCameraZoomNode'));
+  if (ex !== -1) {
+    lines[ex] = injection;
+  } else {
+    const team = lines.findIndex((l) => l.includes('team = 1'));
+    if (team !== -1) lines.splice(team + 1, 0, injection);
   }
-  for (const [, fr] of idx.Files) {
-    const p = fr.Path;
-    if (!p || p === 'metadata/characters/character.ot') continue;
-    if (!p.startsWith('metadata/') || !/\.otc?$/.test(p)) continue;
-    const raw = fr.Read();
-    if (!raw.includes(0)) continue;
-    const { text, hasBom } = decodeU16(raw);
-    if (!CAMERA_FUNCTIONS.some((f) => text.includes(f))) continue;
-    const lines = text.split('\r\n');
-    const out = [];
-    let changed = false;
-    for (const l of lines) {
-      if (!CAMERA_FUNCTIONS.some((f) => l.includes(f))) { out.push(l); continue; }
-      const cleaned = removeCameraCallsFromLine(l);
-      changed = true;
-      if (!isDeadLine(cleaned)) out.push(cleaned);
-    }
-    if (changed) {
-      fr.Write(encodeU16(out.join('\r\n'), hasBom));
-      stats.files++;
-    }
-  }
+  return lines.join('\r\n');
 }
 
+function transformCameraRemove(text) {
+  if (!CAMERA_FUNCTIONS.some((f) => text.includes(f))) return text;
+  const lines = text.split('\r\n');
+  const out = [];
+  let changed = false;
+  for (const l of lines) {
+    if (!CAMERA_FUNCTIONS.some((f) => l.includes(f))) { out.push(l); continue; }
+    const cleaned = removeCameraCallsFromLine(l);
+    changed = true;
+    if (!isDeadLine(cleaned)) out.push(cleaned);
+  }
+  return changed ? out.join('\r\n') : text;
+}
 
-// ------------------------------------------------ handlers por arquivo -------
-function patchMinimapFile(fr, stats) {
-  const raw = fr.Read();
-  const isUtf16 = raw.includes(0);
-  let text = isUtf16 ? raw.toString('utf16le').replace(/^\uFEFF/, '') : raw.toString('utf8');
+function transformMinimap(text) {
   const re = /float\s+visibility\s*=\s*saturate\s*\(\s*walkability_sample\.g\s*\*\s*2\.0f?\s*\)\s*;/;
-  const mod = text.replace(re, 'float visibility = 1.0f;');
-  if (mod !== text) {
-    fr.Write(isUtf16 ? Buffer.from('\uFEFF' + mod, 'utf16le') : Buffer.from(mod, 'utf8'));
-    stats.files++;
-  }
+  return text.replace(re, 'float visibility = 1.0f;');
 }
 
-function envReplace(fr, stats, pairs) {
-  const raw = fr.Read();
-  if (!raw.includes(0)) return;
-  const { text, hasBom } = decodeU16(raw);
+function makeEnvTransform(pairs) {
+  return (text) => {
+    let mod = text;
+    for (const [a, b] of pairs) mod = mod.split(a).join(b);
+    return mod;
+  };
+}
+
+function transformCorpse(text) {
   let mod = text;
-  for (const [a, b] of pairs) mod = mod.replaceAll(a, b);
-  if (mod !== text) {
-    fr.Write(encodeU16(mod, hasBom));
-    stats.files++;
-  }
+  mod = mod.split('Life\r\n{\r\n}').join('Life\r\n{\r\n\ton_spawned_dead = {RemoveEffects(); DisableRendering();}\r\n\ton_death = {Delay( 1.0, { DisableRendering(); } );}\r\n}');
+  mod = mod.split('slow_animations_go_to_idle = true\r\n}').join('slow_animations_go_to_idle = true\r\n\ton_start_Revive = {RemoveEffects(); EnableRendering();}\r\n}');
+  return mod;
 }
 
-function patchCorpseFile(fr, stats) {
-  const { text, hasBom } = decodeU16(fr.Read());
-  let mod = text;
-  mod = mod.replace('Life\r\n{\r\n}', 'Life\r\n{\r\n\ton_spawned_dead = {RemoveEffects(); DisableRendering();}\r\n\ton_death = {Delay( 1.0, { DisableRendering(); } );}\r\n}');
-  mod = mod.replace('slow_animations_go_to_idle = true\r\n}', 'slow_animations_go_to_idle = true\r\n\ton_start_Revive = {RemoveEffects(); EnableRendering();}\r\n}');
-  if (mod !== text) {
-    fr.Write(encodeU16(mod, hasBom));
-    stats.files++;
-  }
-}
-
-function patchMonsterHPFile(fr, stats) {
-  const { text, hasBom } = decodeU16(fr.Read());
-  if (text.includes('base_maximum_energy_shield = 1') || text.includes('base_maximum_life = 1')) return;
+function transformMonsterHP(text) {
+  if (text.includes('base_maximum_energy_shield = 1') || text.includes('base_maximum_life = 1')) return text;
   const lines = text.split('\r\n');
   const at = lines.findIndex((l) => l.includes('item_drop_slots = 1'));
-  if (at !== -1) {
-    lines.splice(at + 1, 0, '\tbase_maximum_life = 1', '\tbase_maximum_energy_shield = 1');
-    fr.Write(encodeU16(lines.join('\r\n'), hasBom));
-    stats.files++;
-  }
+  if (at === -1) return text;
+  lines.splice(at + 1, 0, '\tbase_maximum_life = 1', '\tbase_maximum_energy_shield = 1');
+  return lines.join('\r\n');
 }
 
-function patchDeliriumFile(fr, stats) {
-  const { text, hasBom } = decodeU16(fr.Read());
-  let mod = null;
+function transformDelirium(text) {
   if (text.includes('Metadata/FmtParent') && !text.includes('AnimatedRender')) {
-    mod = 'version 3\nextends "Metadata/FmtParent"';
-  } else if (text.includes('Metadata/FmtParent') && text.includes('AnimatedRender')) {
-    mod = 'version 3\nextends "Metadata/FmtParent"\n\nclient\n{\n\tAnimatedRender\n\t{\n\t\tcannot_be_disabled = true\n\t}\n}';
-  } else if (text.includes('Metadata/Parent')) {
-    mod = `version 3
+    return 'version 3\nextends "Metadata/FmtParent"';
+  }
+  if (text.includes('Metadata/FmtParent') && text.includes('AnimatedRender')) {
+    return 'version 3\nextends "Metadata/FmtParent"\n\nclient\n{\n\tAnimatedRender\n\t{\n\t\tcannot_be_disabled = true\n\t}\n}';
+  }
+  if (text.includes('Metadata/Parent')) {
+    return `version 3
 extends "Metadata/Parent"
 
 BaseAnimationEvents
@@ -572,23 +533,14 @@ client
     }
 }`;
   }
-  if (mod !== null) {
-    fr.Write(encodeU16(mod, hasBom));
-    stats.files++;
-  }
+  return text;
 }
 
-function patchEffectsFile(fr, stats) {
-  const { text, hasBom } = decodeU16(fr.Read());
-  const mod = stripClientBlocks(text, EFFECTS_CLIENT_KEEP);
-  if (mod !== text) {
-    fr.Write(encodeU16(mod, hasBom));
-    stats.files++;
-  }
+function transformEffects(text) {
+  return stripClientBlocks(text, EFFECTS_CLIENT_KEEP);
 }
 
-function patchColorModsFile(fr, stats, options) {
-  const { text, hasBom } = decodeU16(fr.Read());
+function transformColorMods(text, options) {
   const lines = text.split('\r\n');
   let state = 'readingToDescription';
   let currentAnnotation = null;
@@ -630,32 +582,33 @@ function patchColorModsFile(fr, stats, options) {
       if (linesToWrite === 0) state = 'readingData';
     }
   }
-  if (changed) {
-    fr.Write(encodeU16(lines.join('\r\n'), hasBom));
-    stats.files++;
-  }
+  return changed ? lines.join('\r\n') : text;
 }
 
 // --------------------------------------------------- montagem dos handlers ---
-function buildHandlers(config, stats, onProgress) {
+function buildHandlers(config) {
   const handlers = [];
 
+  const isOt = (p) => p.startsWith('metadata/') && /\.otc?$/.test(p);
+  const isEnv = (p) => p.startsWith('metadata/environmentsettings/') && p.endsWith('.env');
+
   if (config.zoom) {
-    handlers.push({ name: 'Zoom de Câmera', run: (idx) => patchCamera(idx, config, stats, onProgress) });
+    handlers.push({ should: (p) => p === 'metadata/characters/character.ot', transform: (t, m) => transformCameraInject(t, { ...m, zoomLevel: config.zoomLevel }) });
+    handlers.push({ should: (p) => isOt(p) && p !== 'metadata/characters/character.ot', transform: (t) => transformCameraRemove(t) });
   }
   if (config.minimap) {
-    handlers.push({ should: (p) => p === 'shaders/minimap_blending_pixel.hlsl', apply: (fr) => patchMinimapFile(fr, stats) });
+    handlers.push({ should: (p) => p === 'shaders/minimap_blending_pixel.hlsl', transform: (t) => transformMinimap(t) });
   }
   if (config.fog) {
-    handlers.push({ should: (p) => p.startsWith('metadata/environmentsettings/') && p.endsWith('.env'), apply: (fr) => envReplace(fr, stats, [['"fog"', '"xog"']]) });
+    handlers.push({ should: isEnv, transform: makeEnvTransform([['"fog"', '"xog"']]) });
   }
   if (config.shadow) {
-    handlers.push({ should: (p) => p.startsWith('metadata/environmentsettings/') && p.endsWith('.env'), apply: (fr) => envReplace(fr, stats, [['"shadows_enabled": true', '"shadows_enabled": false']]) });
+    handlers.push({ should: isEnv, transform: makeEnvTransform([['"shadows_enabled": true', '"shadows_enabled": false']]) });
   }
   if (config.light) {
     handlers.push({
-      should: (p) => p.startsWith('metadata/environmentsettings/') && p.endsWith('.env'),
-      apply: (fr) => envReplace(fr, stats, [
+      should: isEnv,
+      transform: makeEnvTransform([
         ['"directional_light"', '"xirectional_light"'],
         ['"player_light"', '"xlayer_light"'],
         ['"environment_mapping"', '"xnvironment_mapping"'],
@@ -665,8 +618,8 @@ function buildHandlers(config, stats, onProgress) {
   }
   if (config.envparticles) {
     handlers.push({
-      should: (p) => p.startsWith('metadata/environmentsettings/') && p.endsWith('.env'),
-      apply: (fr) => envReplace(fr, stats, [
+      should: isEnv,
+      transform: makeEnvTransform([
         ['"area"', '"xrea"'],
         ['"fog"', '"xog"'],
         ['"screenspace_fog"', '"xcreenspace_fog"'],
@@ -676,32 +629,35 @@ function buildHandlers(config, stats, onProgress) {
     });
   }
   if (config.corpse) {
-    handlers.push({ should: (p) => p === 'metadata/monsters/monster.ot', apply: (fr) => patchCorpseFile(fr, stats) });
+    handlers.push({ should: (p) => p === 'metadata/monsters/monster.ot', transform: (t) => transformCorpse(t) });
   }
   if (config.monsterhp) {
-    handlers.push({ should: (p) => p === 'metadata/monsters/monster.ot', apply: (fr) => patchMonsterHPFile(fr, stats) });
+    handlers.push({ should: (p) => p === 'metadata/monsters/monster.ot', transform: (t) => transformMonsterHP(t) });
   }
   if (config.delirium) {
     handlers.push({
       should: (p) => p.startsWith('metadata/effects/environment/league_affliction/') && (p.endsWith('.ao') || p.endsWith('.aoc')),
-      apply: (fr) => patchDeliriumFile(fr, stats),
+      transform: (t) => transformDelirium(t),
     });
   }
   if (config.particles) {
     handlers.push({
       should: (p) => p.startsWith('metadata/particles/') && (p.endsWith('.pet') || p.endsWith('.trl')) && !PARTICLES_PATH_PROTECT.some((x) => p.startsWith(x)),
-      apply: (fr) => { fr.Write(encodeU16('0', true)); stats.files++; },
+      transform: () => '0',
     });
   }
   if (config.effects) {
     handlers.push({
       should: (p) => p.startsWith('metadata/effects/spells/') && (p.endsWith('.aoc') || p.endsWith('.ao')) && !EFFECTS_PATH_PROTECT.some((x) => p.startsWith(x)),
-      apply: (fr) => patchEffectsFile(fr, stats),
+      transform: (t) => transformEffects(t),
     });
   }
   if (config.colormods) {
     const opts = config.colormodsOptions || DEFAULT_COLORMODS;
-    handlers.push({ should: (p) => p.startsWith('metadata/statdescriptions/') && p.endsWith('.txt'), apply: (fr) => patchColorModsFile(fr, stats, opts) });
+    handlers.push({
+      should: (p) => p.startsWith('metadata/statdescriptions/') && p.endsWith('.txt'),
+      transform: (t) => transformColorMods(t, opts),
+    });
   }
 
   return handlers;
