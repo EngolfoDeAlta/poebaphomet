@@ -1,6 +1,6 @@
 # PoeBaphomet 🐐
 
-Ferramenta de patches para **Path of Exile 1** (Windows). Edita os bundles do jogo
+Ferramenta de patches para **Path of Exile** (Windows). Edita os bundles do jogo
 (`Bundles2\_.index.bin`) para aplicar modificações de qualidade de vida.
 
 > **Atenção:** editar arquivos de dados do jogo pode violar os Termos de Serviço.
@@ -9,7 +9,7 @@ Ferramenta de patches para **Path of Exile 1** (Windows). Edita os bundles do jo
 ## Requisitos
 
 - Windows 10/11 (64 bits)
-- Path of Exile 1 instalado (Steam ou cliente standalone)
+- Path of Exile instalado (Steam ou cliente standalone)
 
 ## Como usar
 

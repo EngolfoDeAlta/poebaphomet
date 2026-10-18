@@ -1,7 +1,7 @@
 {
   "name": "poebaphomet",
   "version": "1.0.0",
-  "description": "PoeBaphomet - Patches para Path of Exile 1",
+  "description": "PoeBaphomet - Patches para Path of Exile",
   "type": "module",
   "main": "main.js",
   "author": "PoeBaphomet",
