@@ -1,6 +1,6 @@
 # PoeBaphomet 🐐
 
-Ferramenta de patches para **Path of Exile** (Windows). Edita os bundles do jogo
+Ferramenta de patches para o jogo (Windows). Edita os bundles do jogo
 (`Bundles2\_.index.bin`) para aplicar modificações de qualidade de vida.
 
 > **Atenção:** editar arquivos de dados do jogo pode violar os Termos de Serviço.
@@ -9,13 +9,13 @@ Ferramenta de patches para **Path of Exile** (Windows). Edita os bundles do jogo
 ## Requisitos
 
 - Windows 10/11 (64 bits)
-- Path of Exile instalado (Steam ou cliente standalone)
+- O jogo instalado (Steam ou cliente standalone)
 
 ## Como usar
 
 1. Execute `PoeBaphomet.exe` (portable — não precisa instalar).
 2. O jogo é detectado automaticamente. Se não for, use **Procurar…** e selecione a
-   pasta do Path of Exile (a que contém `Bundles2`).
+   pasta do jogo (a que contém `Bundles2`).
 3. Marque os patches desejados e clique em **Aplicar patches**.
 4. Abra o jogo. Para reverter tudo, feche o jogo e clique em **Restaurar original**.
 
