@@ -23,6 +23,9 @@ release/
 logs/
 *.tmp
 
+# notas/planejamento interno
+PLANO.md
+
 # ambiente
 .env
 .env.*
