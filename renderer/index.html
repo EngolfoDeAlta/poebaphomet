@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';" />
+  <title>PoeBaphomet</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">🐐 <span>PoeBaphomet</span></div>
+    <div class="subtitle">Patches para Path of Exile 1</div>
+  </header>
+
+  <main>
+    <!-- Caminho do jogo -->
+    <section class="card" id="game-card">
+      <div class="card-title">Jogo</div>
+      <div class="row">
+        <input type="text" id="game-path" placeholder="Caminho da pasta do Path of Exile..." readonly />
+        <button id="btn-detect" class="btn ghost">Detectar</button>
+        <button id="btn-browse" class="btn ghost">Procurar…</button>
+      </div>
+      <div class="hint" id="game-hint">Nenhuma pasta do jogo selecionada.</div>
+    </section>
+
+    <!-- Zoom -->
+    <section class="card">
+      <div class="card-title">Zoom de Câmera</div>
+      <label class="check">
+        <input type="checkbox" id="zoom" />
+        <span class="check-label"><b>Zoom estendido</b> — afasta a câmera padrão do personagem.</span>
+      </label>
+      <div class="row zoom-row" id="zoom-row">
+        <label class="inline-label" for="zoom-level">Nível de zoom:</label>
+        <input type="range" id="zoom-level" min="1.0" max="10.0" step="0.1" value="2.4" />
+        <input type="number" id="zoom-num" min="1.0" max="10.0" step="0.1" value="2.4" />
+        <span class="hint">1.0x — 10.0x (valores altos afastam bastante a câmera)</span>
+      </div>
+    </section>
+
+    <!-- Patches -->
+    <section class="card">
+      <div class="card-title">Patches</div>
+      <div class="patch-grid">
+        <label class="check"><input type="checkbox" id="minimap" /><span><b>Minimapa revelado</b><br /><small>Revela o minimapa inteiro (sem névoa de exploração).</small></span></label>
+        <label class="check"><input type="checkbox" id="monsterhp" /><span><b>Vida dos monstros</b><br /><small>Mostra a barra de vida dos monstros sempre.</small></span></label>
+        <div class="cm-wrap">
+          <label class="check"><input type="checkbox" id="colormods" /><span><b>Cores de mods</b><br /><small>Colore modificadores perigosos de itens e mapas.</small></span></label>
+          <div class="colormods-row">
+            <button id="btn-colormods" class="btn ghost small">Configurar cores…</button>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="fog" /><span><b>Névoa</b><br /><small>Desativa a névoa padrão do jogo.</small></span></label>
+        <label class="check"><input type="checkbox" id="envparticles" /><span><b>Partículas de ambiente</b><br /><small>Desativa partículas do ambiente.</small></span></label>
+        <label class="check"><input type="checkbox" id="shadow" /><span><b>Sombras</b><br /><small>Desativa o efeito de sombras.</small></span></label>
+        <label class="check"><input type="checkbox" id="light" /><span><b>Luz</b><br /><small>Desativa efeitos de luz.</small></span></label>
+        <label class="check"><input type="checkbox" id="corpse" /><span><b>Corpos</b><br /><small>Remove os corpos dos monstros.</small></span></label>
+        <label class="check"><input type="checkbox" id="delirium" /><span><b>Delírio</b><br /><small>Desativa os efeitos do Delírio.</small></span></label>
+        <label class="check"><input type="checkbox" id="particles" /><span><b>Partículas</b><br /><small>Desativa todas as partículas.</small></span></label>
+        <label class="check"><input type="checkbox" id="effects" /><span><b>Efeitos</b><br /><small>Desativa todos os efeitos de magias.</small></span></label>
+      </div>
+    </section>
+
+    <!-- Ações -->
+    <section class="card actions">
+      <button id="btn-apply" class="btn primary">Aplicar patches</button>
+      <button id="btn-restore" class="btn danger" disabled>Restaurar original</button>
+      <div class="spinner hidden" id="spinner"></div>
+    </section>
+
+    <!-- Progresso -->
+    <section class="card hidden" id="progress-card">
+      <div class="progress">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="progress-text" id="progress-text">Preparando...</div>
+    </section>
+
+    <!-- Log -->
+    <section class="card">
+      <div class="card-title">Status</div>
+      <div class="log" id="log"></div>
+    </section>
+  </main>
+
+  <footer>
+    PoeBaphomet edita arquivos de dados do jogo (bundles). Um backup do índice original é criado
+    automaticamente antes da primeira aplicação — use "Restaurar original" para reverter.
+    Feche o jogo antes de aplicar ou restaurar.
+  </footer>
+
+  <!-- Modal de configuração de cores de mods -->
+  <div class="modal-backdrop hidden" id="colormods-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <span>Cores de mods</span>
+        <button class="modal-close" id="colormods-close">✕</button>
+      </div>
+      <div class="modal-body" id="colormods-body"></div>
+      <div class="modal-foot">
+        <span class="hint">Marque os mods e escolha a cor de cada um.</span>
+        <button class="btn primary" id="colormods-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

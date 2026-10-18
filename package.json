@@ -1,0 +1,52 @@
+{
+  "name": "poebaphomet",
+  "version": "1.0.0",
+  "description": "PoeBaphomet - Patches para Path of Exile 1",
+  "type": "module",
+  "main": "main.js",
+  "author": "PoeBaphomet",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "dependencies": {
+    "poe-bundle-lib": "^1.4.0"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.poebaphomet.app",
+    "productName": "PoeBaphomet",
+    "artifactName": "PoeBaphomet.exe",
+    "files": [
+      "main.js",
+      "preload.cjs",
+      "renderer/**/*",
+      "core/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "libs/oo2core.dll",
+        "to": "oo2core.dll"
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**",
+      "node_modules/poe-bundle-lib/**"
+    ],
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false,
+      "icon": "build/icon.ico"
+    },
+    "compression": "maximum"
+  },
+  "allowScripts": {
+    "koffi@2.16.3": true,
+    "electron@33.4.11": true
+  }
+}

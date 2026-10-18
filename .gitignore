@@ -1,0 +1,36 @@
+# dependências
+node_modules/
+
+# build e artefatos
+dist/
+build/
+out/
+release/
+
+# binários (inclui oo2core.dll, que é proprietária — ver README)
+*.exe
+*.dll
+*.pdb
+*.obj
+*.lib
+*.bin
+*.dat
+*.ico
+*.png
+
+# logs e temporários
+*.log
+logs/
+*.tmp
+
+# ambiente
+.env
+.env.*
+!*.env.example
+
+# SO/editores
+Thumbs.db
+.DS_Store
+.idea/
+.vs/
+.vscode/
