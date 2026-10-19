@@ -13,7 +13,7 @@ Ferramenta de patches para o jogo (Windows). Edita os bundles do jogo
 
 ## Como usar
 
-1. Execute `PoeBaphomet.exe` (portable — não precisa instalar).
+1. Execute `PoeBaphomet-1.1.0.exe` (portable — não precisa instalar).
 2. O jogo é detectado automaticamente. Se não for, use **Procurar…** e selecione a
    pasta do jogo (a que contém `Bundles2`).
 3. Marque os patches desejados e clique em **Aplicar patches**.
@@ -54,7 +54,7 @@ poebaphomet/
 │   └── app.js
 ├── package.json       # dependências + configuração do empacotamento
 └── dist/
-    └── PoeBaphomet.exe   # executável final (portable)
+    └── PoeBaphomet-1.1.0.exe   # executável final (portable)
 ```
 
 ## Desenvolvimento
@@ -78,6 +78,9 @@ npm run dist         # gera o PoeBaphomet.exe (electron-builder --win portable)
   `on_initial_position_set = {ClearCameraZoomNodes(); CreateCameraZoomNode(1000000000.0, 1000000000.0, NÍVEL);}`
   e remove comandos de câmera dos demais `.ot`/`.otc` (overrides de área/boss).
 - **Minimapa**: altera `shaders/minimap_blending_pixel.hlsl` (`visibility = 1.0f`).
+- **Marcadores de monstros**: adiciona `warden_tracker = 1` no bloco `Stats` do
+  `metadata/characters/character.ot` (a mesma stat da passiva "Detect Evil") — o jogo
+  mostra ícones de monstros raros e únicos no minimapa.
 - **Backup**: cópia do índice em `_.index.bin.poebaphomet.bak` antes da primeira
   aplicação. **Restaurar** copia o backup de volta e remove o bundle custom
   `LibGGPK3\0.bundle.bin`.
