@@ -26,7 +26,7 @@ const els = {
 };
 
 const patchIds = [
-  'minimap', 'monsterhp', 'colormods', 'fog', 'envparticles', 'shadow',
+  'minimap', 'monstermarkers', 'monsterhp', 'colormods', 'fog', 'envparticles', 'shadow',
   'light', 'corpse', 'delirium', 'particles', 'effects',
 ];
 

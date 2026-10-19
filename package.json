@@ -1,6 +1,6 @@
 {
   "name": "poebaphomet",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "PoeBaphomet - Ferramenta de patches",
   "type": "module",
   "main": "main.js",
@@ -20,7 +20,7 @@
   "build": {
     "appId": "com.poebaphomet.app",
     "productName": "PoeBaphomet",
-    "artifactName": "PoeBaphomet.exe",
+    "artifactName": "PoeBaphomet-${version}.exe",
     "files": [
       "main.js",
       "preload.cjs",

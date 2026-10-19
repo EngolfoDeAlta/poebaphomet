@@ -5,6 +5,7 @@ import { Index } from 'poe-bundle-lib';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { transformMonsterMarkers } from './monstermarkers.js';
 
 const BOM = Buffer.from([0xff, 0xfe]);
 
@@ -595,6 +596,9 @@ function buildHandlers(config) {
   if (config.zoom) {
     handlers.push({ should: (p) => p === 'metadata/characters/character.ot', transform: (t, m) => transformCameraInject(t, { ...m, zoomLevel: config.zoomLevel }) });
     handlers.push({ should: (p) => isOt(p) && p !== 'metadata/characters/character.ot', transform: (t) => transformCameraRemove(t) });
+  }
+  if (config.monstermarkers) {
+    handlers.push({ should: (p) => p === 'metadata/characters/character.ot', transform: (t) => transformMonsterMarkers(t) });
   }
   if (config.minimap) {
     handlers.push({ should: (p) => p === 'shaders/minimap_blending_pixel.hlsl', transform: (t) => transformMinimap(t) });

@@ -25,6 +25,7 @@ Ferramenta de patches para o jogo (Windows). Edita os bundles do jogo
 |---|---|
 | **Zoom de Câmera** | Afasta a câmera padrão do personagem. Nível configurável (1.0x–10.0x). |
 | **Minimapa revelado** | Revela o minimapa inteiro, sem névoa de exploração. |
+| **Marcadores de monstros** | Mostra monstros raros e únicos no minimapa (ícones de raridade). |
 | **Vida dos monstros** | Mostra a barra de vida dos monstros sempre. |
 | **Cores de mods** | Colore modificadores perigosos de itens/mapas (vermelho, amarelo, azul…). |
 | **Névoa** | Desativa a névoa padrão. |
@@ -43,7 +44,8 @@ poebaphomet/
 ├── main.js            # processo principal (Electron)
 ├── preload.cjs        # ponte IPC segura
 ├── core/
-│   └── patcher.js     # núcleo: detecção do jogo, patches, backup/restauração
+│   ├── patcher.js         # núcleo: detecção do jogo, patches, backup/restauração
+│   └── monstermarkers.js  # marcadores de monstros no minimapa (Passo 3)
 ├── libs/
 │   └── oo2core.dll    # biblioteca de compressão Oodle (carregada em runtime)
 ├── renderer/
